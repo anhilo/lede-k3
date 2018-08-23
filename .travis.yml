@@ -1,0 +1,52 @@
+cache:
+  bundler: true
+  directories:
+  - cache/
+notifications:
+  email: false
+language: c
+compiler: gcc
+env:
+  global:
+  - PACKAGE=helloworld
+  - USER=leon0516
+  - REPO=openwrt-helloworld
+  matrix:
+  - SDK_URL=https://downloads.openwrt.org/chaos_calmer/15.05/ar71xx/generic/OpenWrt-SDK-15.05-ar71xx-generic_gcc-4.8-linaro_uClibc-0.9.33.2.Linux-x86_64.tar.bz2
+  - SDK_URL=https://downloads.openwrt.org/chaos_calmer/15.05/ramips/mt7620/OpenWrt-SDK-15.05-ramips-mt7620_gcc-4.8-linaro_uClibc-0.9.33.2.Linux-x86_64.tar.bz2
+install:
+- sudo apt-get -y install build-essential asciidoc binutils bzip2 gawk gettext git libncurses5-dev libz-dev patch unzip zlib1g-dev lib32gcc1 libc6-dev-i386 subversion flex uglifyjs git-core gcc-multilib p7zip p7zip-full msmtp libssl-dev texinfo libglib2.0-dev
+- mkdir -p $TRAVIS_BUILD_DIR/local ; cd $TRAVIS_BUILD_DIR/local
+- wget "http://us.archive.ubuntu.com/ubuntu/pool/main/c/ccache/ccache_3.1.6-1_amd64.deb"
+- dpkg -x *.deb .
+- mkdir -p $TRAVIS_BUILD_DIR/cache ; cd $TRAVIS_BUILD_DIR/cache
+- wget -c $SDK_URL
+- mkdir -p $TRAVIS_BUILD_DIR/sdk ; cd $TRAVIS_BUILD_DIR/sdk
+- export FILE=$TRAVIS_BUILD_DIR/cache/$(basename $SDK_URL)
+- file $FILE
+- tar xjf $FILE
+- cd $TRAVIS_BUILD_DIR/sdk/OpenWrt-SDK-*
+- mkdir package/$PACKAGE
+- ln -s $TRAVIS_BUILD_DIR/Makefile package/$PACKAGE/
+- ln -s $TRAVIS_BUILD_DIR/src package/$PACKAGE/
+script:
+- export PATH=$TRAVIS_BUILD_DIR/local/usr/bin:$PATH
+- cd $TRAVIS_BUILD_DIR/sdk/OpenWrt-SDK-*
+- "./scripts/feeds update packages >/dev/null"
+- make V=s
+- find $TRAVIS_BUILD_DIR/sdk/OpenWrt-SDK-*/bin/
+- find . -name *.ipk -exec cp {} $TRAVIS_BUILD_DIR \;
+- cd $TRAVIS_BUILD_DIR/
+- chmod a+x $TRAVIS_BUILD_DIR/deploy.sh
+after_success: "$TRAVIS_BUILD_DIR/deploy.sh"
+before_deploy: git fetch --tags
+deploy:
+  provider: releases
+  api_key:
+    secure: "tSbftUQfhz5a31uGVQ0kLOQtu9qUiaRzvraTLvcehxVVW2oLE/D3fBFRDBQ0sXN6vkUEB90B6zFrBU3k7zkk+k6mFqv/+U2lDzkkhxNfkxwYlLsLqRl/4V9wH6GG7wo6Y3p7Q8wX/n5LHYQwADDuwq+LX5tlomIOr8utaze5g/hPKxSiytNQW+RE87N9ZdW9Bf+9E8mAQnL5UTa9WegcfOgfJZMydtX2gU9CjUe3n4s5kIRj1qH03bVN9APd2iQjIQi2nIpHvpv5m69H/ZJobrVKnlmEc9iLC2phTqfZBVG5Nj/0myCd3m3an8tz9RH7nG56MXRyKYY8vKw7p+o5ZNFeBDOmuT7ieL24fqxF+0HYAH23h+x/iWWJfXdpp99YNhkre/E52jkzff+Jrw/o6c8GwIlmsPapffdLjH55Mf225r23lSY7U3WZrzHMqzQW41zEJ8duINP3p8nyv3yu/bKgkIpyq2GOwJtFbnwus48AEfGznhIpnytZT+JnUUhAwFLZL8IB+4foG2D4ZJBUskipzgUVx0RiZJf6E8oDP0rHXUvbeS0A7/cUUEwkk0WbIjEOYBfG35JeyhvS/A87IKJPUBXSg6tvbfJUJ6zkdpog/EbhX6p8nBb3P3ConqxQCLE7pQA2Hjt5k7YwshsWjVXff/8qWJmKgGUDA7LpH5A="
+  skip_cleanup: true
+  file_glob: true
+  file: "$TRAVIS_BUILD_DIR/*.ipk"
+  on:
+    tags: true
+    all_branches: true
